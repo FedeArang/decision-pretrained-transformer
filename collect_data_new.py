@@ -19,126 +19,178 @@ from evals import eval_bandit
 from utils import build_maze_data_filename
 
 
-def rollin_mdp(env, rollin_type, optimal_actions, seed = 10):
-    states = []
-    actions = []
-    next_states = []
-    rewards = []
+# def rollin_mdp(env, rollin_type, optimal_actions, seed = 10):
+#     states = []
+#     actions = []
+#     next_states = []
+#     rewards = []
 
-    key = jax.random.PRNGKey(seed)
+#     key = jax.random.PRNGKey(seed)
 
-    state, timestep = env.reset(key)
+#     state, timestep = env.reset(key)
 
-    goal_state = state['target_position']
-    walls = state['walls']
-    maze_key = state['key']
+#     goal_state = state['target_position']
+#     walls = state['walls']
+#     maze_key = state['key']
 
-    for i in range(env.time_limit):
-        if rollin_type == 'uniform':
-            state = sample_state(env, walls, goal_state, maze_key, i)
-            action = sample_action()  
-        elif rollin_type == 'expert':
-            action = optimal_actions[state] 
-        else:
-            raise NotImplementedError
+#     for i in range(env.time_limit):
+#         if rollin_type == 'uniform':
+#             state = sample_state(env, walls, goal_state, maze_key, i)
+#             action = sample_action()  
+#         elif rollin_type == 'expert':
+#             action = optimal_actions[state] 
+#         else:
+#             raise NotImplementedError
         
-        next_state, timestep = env.step(state, action)
-        reward = timestep['reward']
+#         next_state, timestep = env.step(state, action)
+#         reward = timestep['reward']
 
 
-        agent_position = state['agent_position']  # TODO this is a Position type. which kind of data structure do we want? (E.G. array/list)
-        next_agent_position = next_state['agent_position']
+#         agent_position = state['agent_position']  # TODO this is a Position type. which kind of data structure do we want? (E.G. array/list)
+#         next_agent_position = next_state['agent_position']
 
-        states.append([agent_position[0], agent_position[1]])
-        actions.append(action)
-        next_states.append([next_agent_position[0], next_agent_position[1]])
-        rewards.append(reward)
-        state = next_state
+#         states.append([agent_position[0], agent_position[1]])
+#         actions.append(action)
+#         next_states.append([next_agent_position[0], next_agent_position[1]])
+#         rewards.append(reward)
+#         state = next_state
 
-    states = np.array(states)
-    actions = np.array(actions)
-    next_states = np.array(next_states)
-    rewards = np.array(rewards)
+#     states = np.array(states)
+#     actions = np.array(actions)
+#     next_states = np.array(next_states)
+#     rewards = np.array(rewards)
 
-    return states, actions, next_states, rewards, goal_state, walls
-
-
-def rand_pos_and_dir(env):
-    pos_vec = np.random.uniform(0, env.size, size=3)
-    pos_vec[1] = 0.0
-    dir_vec = np.random.uniform(0, 2 * np.pi)
-    return pos_vec, dir_vec
+#     return states, actions, next_states, rewards, goal_state, walls
 
 
-def generate_maze_histories_from_envs(envs, n_hists, n_samples, rollin_type):
-    trajs = []
-    for env in envs:
+# def rand_pos_and_dir(env):
+#     pos_vec = np.random.uniform(0, env.size, size=3)
+#     pos_vec[1] = 0.0
+#     dir_vec = np.random.uniform(0, 2 * np.pi)
+#     return pos_vec, dir_vec
 
-        optimal_actions = find_optimal_actions(env) #TODO: since in generate_mdp_histories the optimal actions are required and usually they are part
 
-        for j in range(n_hists):
-            (context_states, context_actions, context_next_states, context_rewards, goal_state, walls) = rollin_mdp(env, rollin_type=rollin_type, optimal_actions=optimal_actions)
+# def generate_maze_histories_from_envs(envs, n_hists, n_samples, rollin_type):
+#     trajs = []
+#     for env in envs:
+
+#         optimal_actions = find_optimal_actions(env) #TODO: since in generate_mdp_histories the optimal actions are required and usually they are part
+
+#         for j in range(n_hists):
+#             (context_states, context_actions, context_next_states, context_rewards, goal_state, walls) = rollin_mdp(env, rollin_type=rollin_type, optimal_actions=optimal_actions)
             
-            for k in range(n_samples):
-                query_state = sample_state(env, walls) 
-                optimal_action = optimal_actions[query_state[0]][query_state[1]]
+#             for k in range(n_samples):
+#                 query_state = sample_state(env, walls) 
+#                 optimal_action = optimal_actions[query_state[0]][query_state[1]]
                 
-                traj = {
-                    'query_state': query_state,
-                    'optimal_action': optimal_action,
-                    'context_states': context_states,
-                    'context_actions': context_actions,
-                    'context_next_states': context_next_states,
-                    'context_rewards': context_rewards,
-                    'goal': goal_state,
-                }
+#                 traj = {
+#                     'query_state': query_state,
+#                     'optimal_action': optimal_action,
+#                     'context_states': context_states,
+#                     'context_actions': context_actions,
+#                     'context_next_states': context_next_states,
+#                     'context_rewards': context_rewards,
+#                     'goal': goal_state,
+#                 }
 
-                trajs.append(traj)
-    return trajs
+#                 trajs.append(traj)
+#     return trajs
 
     
-def generate_maze_histories(horizon, n_envs, **kwargs):
+# def generate_maze_histories(horizon, n_envs, **kwargs):
 
-    envs = [jumanji.environments.Maze(time_limit = horizon) for _ in range(n_envs)]
-    trajs = generate_maze_histories_from_envs(envs, **kwargs)
+#     envs = [jumanji.environments.Maze(time_limit = horizon) for _ in range(n_envs)]
+#     trajs = generate_maze_histories_from_envs(envs, **kwargs)
                                               
-    return trajs
+#     return trajs
 
 
-def find_optimal_actions(env): #TODO
+# def find_optimal_actions(env): #TODO
 
-    #it should be a dictionary where the keys are 'Position' types and the values are the corresponding actions
+#     #it should be a dictionary where the keys are 'Position' types and the values are the corresponding actions
 
-    #raise NotImplementedError
+#     #raise NotImplementedError
 
-    return [[sample_action() for j in range(env.num_cols)] for i in range(env.num_rows)]
+#     return [[sample_action() for j in range(env.num_cols)] for i in range(env.num_rows)]
 
-def sample_state(env, walls, target_position=None, maze_key=None, step_count=None):
+# def sample_state(env, walls, target_position=None, maze_key=None, step_count=None):
 
-    seed = np.random.randint(low = 0, high = env.num_rows*env.num_cols)
+#     seed = np.random.randint(low = 0, high = env.num_rows*env.num_cols)
 
-    key = jax.random.PRNGKey(seed)
+#     key = jax.random.PRNGKey(seed)
+#     state_indices = jax.random.choice(key, jnp.arange(env.num_rows * env.num_cols), (1,), replace=False, p=~walls.flatten())
+#     (state_row, state_col) = jnp.divmod(state_indices, env.num_cols)
+
+#     agent_position = Position(row = state_row[0], col = state_col[0])
+    
+#     if target_position is None:
+#         return agent_position #in this case we only want to return the agent position and not the full state
+#     else:
+#         return State(agent_position=agent_position, target_position=target_position, walls=walls, action_mask=jnp.array([True, True, True, True]), key=maze_key, step_count=jnp.array(step_count+1, jnp.int32))
+
+
+
+
+def sample_state(state, key):
     state_indices = jax.random.choice(key, jnp.arange(env.num_rows * env.num_cols), (1,), replace=False, p=~walls.flatten())
     (state_row, state_col) = jnp.divmod(state_indices, env.num_cols)
-
     agent_position = Position(row = state_row[0], col = state_col[0])
-    
-    if target_position is None:
-        return agent_position #in this case we only want to return the agent position and not the full state
-    else:
-        return State(agent_position=agent_position, target_position=target_position, walls=walls, action_mask=jnp.array([True, True, True, True]), key=maze_key, step_count=jnp.array(step_count+1, jnp.int32))
+    random_state = State(
+                            agent_position=agent_position,
+                            target_position=target_position,
+                            walls=walls, 
+                            action_mask=jnp.array([True, True, True, True]), 
+                            key=maze_key, 
+                            step_count=jnp.array(step_count+1, jnp.int32)
+                        )
+    return 
+
+# def sample_action():
+#     return np.random.choice([1, 2, 3, 4])
 
 
 
-def sample_action():
+def sample_state(state, key):
+  rows = state.walls.shape[0]
+  cols = rows = state.walls.shape[1]
+  state_indices = jax.random.choice(key, jnp.arange(rows * cols), (1,), replace=False, p=~state.walls.flatten())
+  (state_row, state_col) = jnp.divmod(state_indices, env.num_cols)
+  sampled_position = Position(row = state_row[0], col = state_col[0])
+  state.agent_position = sampled_position
+  state.step_count += 1
+  return state
 
-    return np.random.choice([1, 2, 3, 4])
+def step_fn(state, key):
+  action = jax.random.randint(key=key, minval=0, maxval=num_actions, shape=())
+  new_state, timestep = env.step(state, action)
+  return new_state, {
+                      "state": [state.agent_position],
+                      "action": action, 
+                      "next_state": [new_state.agent_position],
+                      "reward": timestep.reward,
+                      "whole_timestep": timestep
+                    }
+
+def uniform_step_fn(state, key):
+  key_action, key_state = jax.random.split(key)
+  state = sample_state(state, key_state)
+  return step_fn(state, key_action)
+
+def run_n_steps(state, key, n):
+  random_keys = jax.random.split(key, n)
+  state, rollout = jax.lax.scan(uniform_step_fn, state, random_keys)
+  return rollout
+
+def collect_rollout(key):
+    key1, key2 = jax.random.split(key, batch_size)
+    keys_init = jax.random.split(key1, batch_size)
+    state, _ = jax.vmap(env.reset)(keys_init)
+
+    keys_rollout = jax.random.split(key2, batch_size)
+    rollout = jax.vmap(run_n_steps, in_axes=(0, 0, None))(state, keys_rollout, rollout_length)
 
 
 if __name__ == '__main__':
-    np.random.seed(0)
-    random.seed(0)
-
     parser = argparse.ArgumentParser()
     common_args.add_dataset_args(parser)
     args = vars(parser.parse_args())
@@ -164,8 +216,24 @@ if __name__ == '__main__':
     config = {'n_hists': n_hists, 'n_samples': n_samples}
 
     if env == 'Maze':
-
         config.update({'rollin_type': 'uniform'})
+
+        env = jumanji.make("Maze-v0")
+
+        batch_size = 50
+        rollout_length = 1000
+        num_actions = env.action_spec.num_values
+
+        random_key = jax.random.PRNGKey(1)
+        key_train, key_test, key_eval = jax.random.split(random_key, 3)
+
+
+
+
+
+
+
+
 
         train_trajs = generate_maze_histories(horizon, n_train_envs, **config)
         test_trajs = generate_maze_histories(horizon, n_test_envs, **config)
