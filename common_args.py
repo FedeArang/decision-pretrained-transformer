@@ -1,4 +1,3 @@
-
 def add_dataset_args(parser):
     parser.add_argument("--envs", type=int, required=False,
                         default=100000, help="Envs")

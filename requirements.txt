@@ -1,4 +1,4 @@
-transformers==4.5.1
+transformers
 scipy==1.9.3
 scikit-image==0.21.0
 ipython==8.6.0
