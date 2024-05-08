@@ -284,9 +284,6 @@ def generate_linear_bandit_histories(n_envs, dim, lin_d, horizon, var, **kwargs)
     return trajs
 
 
-
-
-
 def generate_darkroom_histories(goals, dim, horizon, **kwargs):
     envs = [darkroom_env.DarkroomEnv(dim, goal, horizon) for goal in goals]
     trajs = generate_mdp_histories_from_envs(envs, **kwargs)
@@ -346,7 +343,6 @@ def generate_miniworld_histories(env_ids, image_dir, n_hists, n_samples, horizon
                 }
                 trajs.append(traj)
     return trajs
-
 
 if __name__ == '__main__':
     np.random.seed(0)
@@ -470,7 +466,7 @@ if __name__ == '__main__':
             test_env_ids[:100],
             eval_filepath.split('.')[0],
             **config)
-
+    
     else:
         raise NotImplementedError
 
