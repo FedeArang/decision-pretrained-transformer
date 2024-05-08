@@ -414,8 +414,11 @@ if __name__ == '__main__':
         test_goals = np.repeat(test_goals, n_envs // (dim * dim), axis=0)
 
         train_trajs = generate_darkroom_histories(train_goals, **config)
+        # print(train_trajs)
         test_trajs = generate_darkroom_histories(test_goals, **config)
+        # print(test_trajs)
         eval_trajs = generate_darkroom_histories(eval_goals, **config)
+        print(eval_trajs)
 
         train_filepath = build_darkroom_data_filename(
             env, n_envs, config, mode=0)
