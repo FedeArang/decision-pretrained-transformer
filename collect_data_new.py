@@ -18,146 +18,33 @@ from ctrls.ctrl_bandit import ThompsonSamplingPolicy
 from evals import eval_bandit
 from utils import build_maze_data_filename
 
-
-# def rollin_mdp(env, rollin_type, optimal_actions, seed = 10):
-#     states = []
-#     actions = []
-#     next_states = []
-#     rewards = []
-
-#     key = jax.random.PRNGKey(seed)
-
-#     state, timestep = env.reset(key)
-
-#     goal_state = state['target_position']
-#     walls = state['walls']
-#     maze_key = state['key']
-
-#     for i in range(env.time_limit):
-#         if rollin_type == 'uniform':
-#             state = sample_state(env, walls, goal_state, maze_key, i)
-#             action = sample_action()  
-#         elif rollin_type == 'expert':
-#             action = optimal_actions[state] 
-#         else:
-#             raise NotImplementedError
-        
-#         next_state, timestep = env.step(state, action)
-#         reward = timestep['reward']
-
-
-#         agent_position = state['agent_position']  # TODO this is a Position type. which kind of data structure do we want? (E.G. array/list)
-#         next_agent_position = next_state['agent_position']
-
-#         states.append([agent_position[0], agent_position[1]])
-#         actions.append(action)
-#         next_states.append([next_agent_position[0], next_agent_position[1]])
-#         rewards.append(reward)
-#         state = next_state
-
-#     states = np.array(states)
-#     actions = np.array(actions)
-#     next_states = np.array(next_states)
-#     rewards = np.array(rewards)
-
-#     return states, actions, next_states, rewards, goal_state, walls
-
-
-# def rand_pos_and_dir(env):
-#     pos_vec = np.random.uniform(0, env.size, size=3)
-#     pos_vec[1] = 0.0
-#     dir_vec = np.random.uniform(0, 2 * np.pi)
-#     return pos_vec, dir_vec
-
-
-# def generate_maze_histories_from_envs(envs, n_hists, n_samples, rollin_type):
-#     trajs = []
-#     for env in envs:
-
-#         optimal_actions = find_optimal_actions(env) #TODO: since in generate_mdp_histories the optimal actions are required and usually they are part
-
-#         for j in range(n_hists):
-#             (context_states, context_actions, context_next_states, context_rewards, goal_state, walls) = rollin_mdp(env, rollin_type=rollin_type, optimal_actions=optimal_actions)
-            
-#             for k in range(n_samples):
-#                 query_state = sample_state(env, walls) 
-#                 optimal_action = optimal_actions[query_state[0]][query_state[1]]
-                
-#                 traj = {
-#                     'query_state': query_state,
-#                     'optimal_action': optimal_action,
-#                     'context_states': context_states,
-#                     'context_actions': context_actions,
-#                     'context_next_states': context_next_states,
-#                     'context_rewards': context_rewards,
-#                     'goal': goal_state,
-#                 }
-
-#                 trajs.append(traj)
-#     return trajs
-
-    
-# def generate_maze_histories(horizon, n_envs, **kwargs):
-
-#     envs = [jumanji.environments.Maze(time_limit = horizon) for _ in range(n_envs)]
-#     trajs = generate_maze_histories_from_envs(envs, **kwargs)
-                                              
-#     return trajs
-
-
-# def find_optimal_actions(env): #TODO
-
-#     #it should be a dictionary where the keys are 'Position' types and the values are the corresponding actions
-
-#     #raise NotImplementedError
-
-#     return [[sample_action() for j in range(env.num_cols)] for i in range(env.num_rows)]
-
-# def sample_state(env, walls, target_position=None, maze_key=None, step_count=None):
-
-#     seed = np.random.randint(low = 0, high = env.num_rows*env.num_cols)
-
-#     key = jax.random.PRNGKey(seed)
-#     state_indices = jax.random.choice(key, jnp.arange(env.num_rows * env.num_cols), (1,), replace=False, p=~walls.flatten())
-#     (state_row, state_col) = jnp.divmod(state_indices, env.num_cols)
-
-#     agent_position = Position(row = state_row[0], col = state_col[0])
-    
-#     if target_position is None:
-#         return agent_position #in this case we only want to return the agent position and not the full state
-#     else:
-#         return State(agent_position=agent_position, target_position=target_position, walls=walls, action_mask=jnp.array([True, True, True, True]), key=maze_key, step_count=jnp.array(step_count+1, jnp.int32))
-
-
-
-
-def sample_state(state, key):
-    state_indices = jax.random.choice(key, jnp.arange(env.num_rows * env.num_cols), (1,), replace=False, p=~walls.flatten())
-    (state_row, state_col) = jnp.divmod(state_indices, env.num_cols)
-    agent_position = Position(row = state_row[0], col = state_col[0])
-    random_state = State(
-                            agent_position=agent_position,
-                            target_position=target_position,
-                            walls=walls, 
-                            action_mask=jnp.array([True, True, True, True]), 
-                            key=maze_key, 
-                            step_count=jnp.array(step_count+1, jnp.int32)
-                        )
-    return 
-
-# def sample_action():
-#     return np.random.choice([1, 2, 3, 4])
-
+from jumanji.environments.routing.maze.types import Position, State
+from utils_rl import generate_transition_matrix_maze, generate_reward_function_maze, value_iteration, index_to_state
 
 
 def sample_state(state, key):
   rows = state.walls.shape[0]
   cols = rows = state.walls.shape[1]
-  state_indices = jax.random.choice(key, jnp.arange(rows * cols), (1,), replace=False, p=~state.walls.flatten())
-  (state_row, state_col) = jnp.divmod(state_indices, env.num_cols)
+  state_indices = jax.random.choice(key, jnp.arange(rows * cols), (1,), p=~state.walls.flatten())
+  (state_row, state_col) = jnp.divmod(state_indices, cols)
   sampled_position = Position(row = state_row[0], col = state_col[0])
   state.agent_position = sampled_position
-  state.step_count += 1
+
+  actions = [(-1, 0), (0, 1), (1, 0), (0, -1)]  # Up, Right, Down, Left
+
+  action_mask = jnp.array([
+      jnp.all(jnp.array([
+          0 <= state.agent_position.row + dr,
+          state.agent_position.row + dr < rows,
+          0 <= state.agent_position.col + dc,
+          state.agent_position.col + dc < cols,
+          ~state.walls[state.agent_position.row + dr, state.agent_position.col + dc]
+      ]))
+      for dr, dc in actions
+  ], dtype=bool)
+
+  state.action_mask = action_mask
+
   return state
 
 def step_fn(state, key):
@@ -181,13 +68,52 @@ def run_n_steps(state, key, n):
   state, rollout = jax.lax.scan(uniform_step_fn, state, random_keys)
   return rollout
 
-def collect_rollout(key):
-    key1, key2 = jax.random.split(key, batch_size)
+def generate_rollouts(key, env, batch_size, rollout_length):
+    key1, key2 = jax.random.split(key)
     keys_init = jax.random.split(key1, batch_size)
-    state, _ = jax.vmap(env.reset)(keys_init)
+    state, timestep = jax.vmap(env.reset)(keys_init)
 
+    # Collect a batch of rollouts
     keys_rollout = jax.random.split(key2, batch_size)
     rollout = jax.vmap(run_n_steps, in_axes=(0, 0, None))(state, keys_rollout, rollout_length)
+    return rollout, keys_init, keys_rollout
+
+def extract_data(rollout, batch_size, keys_init, keys_rollout, random_key):
+    data = []
+    num_query_states = 1
+    state_sample_keys = jax.random.split(random_key, batch_size)
+    for k in range(batch_size):
+        walls = rollout["whole_timestep"].observation.walls[k][0]
+        target_position = np.array([rollout["whole_timestep"].observation.target_position.row[k][0], rollout["whole_timestep"].observation.target_position.col[k][0]])
+
+        P = generate_transition_matrix_maze(walls)
+        r = generate_reward_function_maze(target_position, walls)
+        pi_opt = value_iteration(P, r, 0.99999)
+
+        query_index =  jax.random.choice(state_sample_keys[k], jnp.arange(walls.shape[0] * walls.shape[1]), (num_query_states,), p=~walls.flatten())
+        query_states = np.array(index_to_state(query_index, walls.shape[1])).T
+        optimal_actions = pi_opt[:, query_index].T
+
+        context_actions = np.array(rollout["action"][k])
+        context_actions_one_hot = np.zeros((len(context_actions), num_actions))
+        context_actions_one_hot[np.arange(len(context_actions)), context_actions] = 1
+
+        data.append(
+            {
+            "query_state": query_states[0],
+            "optimal_action": optimal_actions[0],
+            "context_actions": context_actions_one_hot,
+            "context_states": np.array(jnp.vstack((rollout["state"][0].row[k], rollout["state"][0].col[k]))).T,
+            "context_next_states": np.array(jnp.vstack((rollout["next_state"][0].row[k], rollout["next_state"][0].col[k]))).T,
+            "context_rewards": np.array(rollout["reward"][k]),
+            "goal_state": target_position,
+            "env_key": keys_init[k],
+            "rollout_key": keys_rollout[k],
+            }
+        )
+
+    return data
+
 
 
 if __name__ == '__main__':
@@ -196,7 +122,7 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     print("Args: ", args)
 
-    env = args['env']
+    env_name = args['env']
     n_envs = args['envs']
     n_eval_envs = args['envs_eval']
     n_hists = args['hists']
@@ -215,35 +141,30 @@ if __name__ == '__main__':
 
     config = {'n_hists': n_hists, 'n_samples': n_samples}
 
-    if env == 'Maze':
+    if env_name == 'Maze':
         config.update({'rollin_type': 'uniform'})
-
         env = jumanji.make("Maze-v0")
-
-        batch_size = 50
-        rollout_length = 1000
         num_actions = env.action_spec.num_values
 
         random_key = jax.random.PRNGKey(1)
         key_train, key_test, key_eval = jax.random.split(random_key, 3)
 
+        rollout_train, keys_init_train, keys_rollout_train = generate_rollouts(key_train, env, n_train_envs, horizon)
+        rollout_test, keys_init_test, keys_rollout_test = generate_rollouts(key_test, env, n_test_envs, horizon)
+        rollout_eval, keys_init_eval, keys_rollout_eval = generate_rollouts(key_eval, env, n_eval_envs, horizon)
 
+        data_train = extract_data(rollout_train, n_train_envs, keys_init_train, keys_rollout_train, key_train)
+        data_test = extract_data(rollout_test, n_test_envs, keys_init_test, keys_rollout_test, key_test)
+        data_eval = extract_data(rollout_eval, n_eval_envs, keys_init_eval, keys_rollout_eval, key_eval)
 
-
-
-
-
-
-
-        train_trajs = generate_maze_histories(horizon, n_train_envs, **config)
-        test_trajs = generate_maze_histories(horizon, n_test_envs, **config)
-        eval_trajs = generate_maze_histories(horizon, n_eval_envs, **config)
+        print(data_train[0])
 
         train_filepath = build_maze_data_filename(
-            env, n_envs, dim, horizon, config, mode=0)
+            env_name, n_envs, horizon, config, mode=0)
         test_filepath = build_maze_data_filename(
-            env, n_envs, dim, horizon, config, mode=1)
-        eval_filepath = build_maze_data_filename(env, 100, dim, horizon, config, mode=2)
+            env_name, n_envs, horizon, config, mode=1)
+        eval_filepath = build_maze_data_filename(
+            env_name, n_envs, horizon, config, mode=2)
 
     else:
         raise NotImplementedError
@@ -252,11 +173,11 @@ if __name__ == '__main__':
     if not os.path.exists('datasets'):
         os.makedirs('datasets', exist_ok=True)
     with open(train_filepath, 'wb') as file:
-        pickle.dump(train_trajs, file)
+        pickle.dump(data_train, file)
     with open(test_filepath, 'wb') as file:
-        pickle.dump(test_trajs, file)
+        pickle.dump(data_test, file)
     with open(eval_filepath, 'wb') as file:
-        pickle.dump(eval_trajs, file)
+        pickle.dump(data_eval, file)
 
     print(f"Saved to {train_filepath}.")
     print(f"Saved to {test_filepath}.")

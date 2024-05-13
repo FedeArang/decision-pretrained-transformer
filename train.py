@@ -25,6 +25,8 @@ from utils import (
     build_darkroom_model_filename,
     build_miniworld_data_filename,
     build_miniworld_model_filename,
+    build_maze_data_filename,
+    build_maze_model_filename,
     worker_init_fn,
 )
 
@@ -151,6 +153,19 @@ if __name__ == '__main__':
             env, n_envs, dataset_config, mode=1)
 
         filename = build_darkroom_model_filename(env, model_config)
+
+    elif env == "Maze":
+        state_dim = 2
+        action_dim = 4
+
+        dataset_config.update({'rollin_type': 'uniform'})
+
+        path_train = build_maze_data_filename(
+            env, n_envs, horizon, dataset_config, mode=0)
+        path_test = build_maze_data_filename(
+            env, n_envs, horizon, dataset_config, mode=1)
+
+        filename = build_maze_model_filename(env, model_config)
 
     elif env == 'miniworld':
         state_dim = 2   # direction vector is 2D, no position included
