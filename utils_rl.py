@@ -26,6 +26,7 @@ def generate_transition_matrix_maze(walls):
         3: (0, -1)   # Left
     }
 
+    # Populate the transition matrix
     for x in range(rows):
         for y in range(columns):
             current_state = state_to_index(x, y, columns)
@@ -43,18 +44,20 @@ def generate_transition_matrix_maze(walls):
 def generate_reward_function_maze(target_position, walls):
     rows = walls.shape[0]  # Number of rows
     columns = walls.shape[1]  # Number of columns
+    num_states = rows * columns
+    num_actions = 4  # up, right, down, left
     rewards = np.zeros(rows * columns)
     target_index = state_to_index(target_position[0], target_position[1], columns)
     rewards[target_index] = 1
     return rewards
 
-def value_iteration(P, reward, discount, precision=1e-5):
+def value_iteration(P, reward, discount, precision=1e-2):
     state_size = P.shape[0]
     action_size = P.shape[2]
     value = np.zeros(state_size)
-    prev_value = np.zeros(state_size) + 2 * precision
+    prev_value = np.ones(state_size)
     pi_vi = np.zeros((action_size, state_size))
-    while (np.abs(value - prev_value) > precision).all():
+    while np.max(np.abs(value - prev_value)) > precision:
         prev_value = value.copy()
         for state in range(state_size):
             value[state] = np.max(
@@ -102,4 +105,32 @@ def plot_policy(policy, grid, title):
     
     ax.set_xticks(np.arange(-0.5, m, 1))
     ax.set_yticks(np.arange(-0.5, n, 1))
+    plt.savefig(title)
+
+def plot_value_function(value, grid, title):
+    n, m = grid.shape
+    reshaped_value = value.reshape(n, m)
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    # Create a heatmap for the value function
+    cax = ax.matshow(reshaped_value, cmap='viridis')
+    
+    # Overlay the grid layout to identify walls
+    for i in range(n):
+        for j in range(m):
+            if grid[i, j] == 1:  # Assuming 1 indicates a wall
+                ax.text(j, i, 'W', va='center', ha='center', color='white', fontsize=12)
+            else:
+                ax.text(j, i, f'{reshaped_value[i, j]:.2f}', va='center', ha='center', color='white', fontsize=8)
+    
+    # Set up the axis
+    ax.set_xticks(np.arange(-0.5, m, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
+    ax.grid(which='minor', color='w', linestyle='-', linewidth=2)
+    ax.set_xticks(np.arange(m))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+    fig.colorbar(cax)
     plt.savefig(title)

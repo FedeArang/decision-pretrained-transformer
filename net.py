@@ -41,11 +41,7 @@ class Transformer(nn.Module):
     def forward(self, x):
         query_states = x['query_states'][:, None, :]
         zeros = x['zeros'][:, None, :]
-        # query_states = query_states[:,0,:,:]
-        # print(zeros[:, :, :self.action_dim].shape)
-        # print(x['context_actions'].shape)
         
-
         state_seq = torch.cat([query_states, x['context_states']], dim=1)
         action_seq = torch.cat(
             [zeros[:, :, :self.action_dim], x['context_actions']], dim=1)
