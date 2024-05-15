@@ -159,11 +159,17 @@ if __name__ == '__main__':
         action_dim = 4
 
         dataset_config.update({'rollin_type': 'uniform'})
+        coverage_bad = {"mode": True, "size": 1}
+        coverage_good = {"mode": False}
+        walls = "no_walls"
+
 
         path_train = build_maze_data_filename(
-            env, n_envs, horizon, dataset_config, mode=0)
-        path_test = build_maze_data_filename(
-            env, n_envs, horizon, dataset_config, mode=1)
+            env, n_envs, horizon, dataset_config, mode=0, coverage=coverage_good, walls = walls)
+        path_icl = build_maze_data_filename(
+            env, n_envs, horizon, dataset_config, mode=1, coverage=coverage_good, walls = walls)
+        path_iwl = build_maze_data_filename(
+            env, n_envs, horizon, dataset_config, mode=2, coverage=coverage_bad, walls = walls)
 
         filename = build_maze_model_filename(env, model_config)
 
@@ -257,47 +263,111 @@ if __name__ == '__main__':
         printw("Done loading miniworld data")
     else:
         train_dataset = Dataset(path_train, config)
-        test_dataset = Dataset(path_test, config)
+        # test_dataset = Dataset(path_test, config)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, **params)
-    test_loader = torch.utils.data.DataLoader(test_dataset, **params)
+        # train_loader = torch.utils.data.DataLoader(train_dataset, **params)
+        # test_loader = torch.utils.data.DataLoader(test_dataset, **params)
+
+    if env == 'Maze':
+        train_dataset = Dataset(path_train, config)
+        icl_dataset = Dataset(path_icl, config)
+        iwl_dataset = Dataset(path_iwl, config)
+
+        train_loader = torch.utils.data.DataLoader(train_dataset, **params)
+        icl_loader = torch.utils.data.DataLoader(icl_dataset, **params)
+        iwl_loader = torch.utils.data.DataLoader(iwl_dataset, **params)
+
+        printw("Num train batches: " + str(len(train_loader)))
+        printw("Num icl batches: " + str(len(icl_loader)))
+        printw("Num iwl batches: " + str(len(iwl_loader)))
+
+
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
 
-    test_loss = []
-    train_loss = []
+    # test_loss = []
+    # train_loss = []
 
-    printw("Num train batches: " + str(len(train_loader)))
-    printw("Num test batches: " + str(len(test_loader)))
+    train_loss = []
+    icl_loss = []
+    iwl_loss = []
+    icl_accuracy = []
+    iwl_accuracy = []
+    train_accuracy = []
+
+    def calculate_accuracy(pred_actions, true_actions):
+        _, pred_classes = torch.max(pred_actions, dim=1)
+        _, true_classes = torch.max(true_actions, dim=1)
+        correct_predictions = (pred_classes == true_classes).sum().item()
+        return correct_predictions
 
     for epoch in range(num_epochs):
-        # EVALUATION
         printw(f"Epoch: {epoch + 1}")
-        start_time = time.time()
-        with torch.no_grad():
-            epoch_test_loss = 0.0
-            for i, batch in enumerate(test_loader):
-                print(f"Batch {i} of {len(test_loader)}", end='\r')
-                batch = {k: v.to(device) for k, v in batch.items()}
-                true_actions = batch['optimal_actions']
-                pred_actions = model(batch)
-                true_actions = true_actions.unsqueeze(
-                    1).repeat(1, pred_actions.shape[1], 1)
-                true_actions = true_actions.reshape(-1, action_dim)
-                pred_actions = pred_actions.reshape(-1, action_dim)
+        if env == "Maze":
+            start_time = time.time()
+            with torch.no_grad():
+                epoch_icl_loss = 0.0
+                total_correct_icl = 0
+                total_samples_icl = 0
+                for i, batch in enumerate(icl_loader):
+                    print(f"Batch {i} of {len(icl_loader)}", end='\r')
+                    batch = {k: v.to(device) for k, v in batch.items()}
+                    true_actions = batch['optimal_actions']
+                    pred_actions = model(batch)
+                    true_actions = true_actions.unsqueeze(1).repeat(1, pred_actions.shape[1], 1)
+                    true_actions = true_actions.reshape(-1, action_dim)
+                    pred_actions = pred_actions.reshape(-1, action_dim)
 
-                loss = loss_fn(pred_actions, true_actions)
-                epoch_test_loss += loss.item() / horizon
+                    loss = loss_fn(pred_actions, true_actions)
+                    epoch_icl_loss += loss.item() / horizon
 
-        test_loss.append(epoch_test_loss / len(test_dataset))
-        end_time = time.time()
-        printw(f"\tTest loss: {test_loss[-1]}")
-        printw(f"\tEval time: {end_time - start_time}")
+                    # Calculate accuracy
+                    total_correct_icl += calculate_accuracy(pred_actions, true_actions)
+                    total_samples_icl += true_actions.size(0)
 
+                icl_loss.append(epoch_icl_loss / len(icl_dataset))
+                icl_accuracy.append(total_correct_icl / total_samples_icl)
+
+            end_time = time.time()
+            print(f"\tICL loss: {icl_loss[-1]}")
+            print(f"\tICL accuracy: {icl_accuracy[-1] * 100}%")
+            print(f"\tEval time: {end_time - start_time}")
+
+            start_time = time.time()
+            with torch.no_grad():
+                epoch_iwl_loss = 0.0
+                total_correct_iwl = 0
+                total_samples_iwl = 0
+                for i, batch in enumerate(iwl_loader):
+                    print(f"Batch {i} of {len(iwl_loader)}", end='\r')
+                    batch = {k: v.to(device) for k, v in batch.items()}
+                    true_actions = batch['optimal_actions']
+                    pred_actions = model(batch)
+                    true_actions = true_actions.unsqueeze(1).repeat(1, pred_actions.shape[1], 1)
+                    true_actions = true_actions.reshape(-1, action_dim)
+                    pred_actions = pred_actions.reshape(-1, action_dim)
+
+                    loss = loss_fn(pred_actions, true_actions)
+                    epoch_iwl_loss += loss.item() / horizon
+
+                    # Calculate accuracy
+                    total_correct_iwl += calculate_accuracy(pred_actions, true_actions)
+                    total_samples_iwl += true_actions.size(0)
+
+                iwl_loss.append(epoch_iwl_loss / len(iwl_dataset))
+                iwl_accuracy.append(total_correct_iwl / total_samples_iwl)
+
+            end_time = time.time()
+            print(f"\tIWL loss: {iwl_loss[-1]}")
+            print(f"\tIWL accuracy: {iwl_accuracy[-1] * 100}%")
+            print(f"\tEval time: {end_time - start_time}")
 
         # TRAINING
         epoch_train_loss = 0.0
+        epoch_train_correct = 0.0
+        epoch_train_samples = 0.0
+
         start_time = time.time()
 
         for i, batch in enumerate(train_loader):
@@ -315,8 +385,12 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             epoch_train_loss += loss.item() / horizon
+            epoch_train_correct += calculate_accuracy(pred_actions, true_actions)
+            epoch_train_samples += true_actions.size(0)
+
 
         train_loss.append(epoch_train_loss / len(train_dataset))
+        train_accuracy.append(epoch_train_correct / epoch_train_samples)
         end_time = time.time()
         printw(f"\tTrain loss: {train_loss[-1]}")
         printw(f"\tTrain time: {end_time - start_time}")
@@ -328,17 +402,45 @@ if __name__ == '__main__':
                        f'models/{filename}_epoch{epoch+1}.pt')
 
         # PLOTTING
+        # if (epoch + 1) % 10 == 0:
+        #     printw(f"Epoch: {epoch + 1}")
+        #     printw(f"ICL Loss:        {icl_loss[-1]}")
+        #     printw(f"IWL Loss:        {iwl_loss[-1]}")
+        #     printw(f"Train Loss:       {train_loss[-1]}")
+        #     printw("\n")
+
+        #     plt.yscale('log')
+        #     plt.plot(train_loss[1:], label="Train Loss")
+        #     plt.plot(icl_loss[1:], label="ICL Loss")
+        #     plt.plot(iwl_loss[1:], label="IWL Loss")
+        #     plt.legend()
+        #     plt.savefig(f"figs/loss/{filename}_train_loss.png")
+        #     plt.clf()
+
         if (epoch + 1) % 10 == 0:
             printw(f"Epoch: {epoch + 1}")
-            printw(f"Test Loss:        {test_loss[-1]}")
+            printw(f"ICL Loss:        {icl_loss[-1]}")
+            printw(f"IWL Loss:        {iwl_loss[-1]}")
             printw(f"Train Loss:       {train_loss[-1]}")
             printw("\n")
+            
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
-            plt.yscale('log')
-            plt.plot(train_loss[1:], label="Train Loss")
-            plt.plot(test_loss[1:], label="Test Loss")
-            plt.legend()
-            plt.savefig(f"figs/loss/{filename}_train_loss.png")
+            ax1.set_yscale('log')
+            ax1.plot(train_loss[1:], label="Train Loss")
+            ax1.plot(icl_loss[1:], label="ICL Loss")
+            ax1.plot(iwl_loss[1:], label="IWL Loss")
+            ax1.legend()
+            ax1.set_title('Loss')
+
+            ax2.plot(train_accuracy, label="Train Accuracy")
+            ax2.plot(icl_accuracy, label="ICL Accuracy")
+            ax2.plot(iwl_accuracy, label="IWL Accuracy")
+            ax2.legend()
+            ax2.set_title('Accuracy')
+
+            plt.tight_layout()
+            plt.savefig(f"figs/loss/{filename}_train_loss_accuracy.png")
             plt.clf()
 
     torch.save(model.state_dict(), f'models/{filename}.pt')

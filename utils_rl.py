@@ -80,10 +80,60 @@ def value_iteration(P, reward, discount, precision=1e-2):
 
     return pi_vi
 
+
+
+def plot_coverage(context_states, context_next_states, grid, title):
+    n, m = grid.shape
+    # Initialize the heatmap array with zeros
+    heatmap = np.zeros((n, m))
+    
+    # Count visits to each state from context_states and context_next_states
+    for state in np.vstack((context_states, context_next_states)):
+        x, y = state
+        heatmap[x, y] += 1
+
+    # Normalize the heatmap to range between 0 and 1
+    heatmap = heatmap / np.max(heatmap)
+    
+    # Mask the cells where there are walls (grid == 1)
+    heatmap = np.ma.masked_where(grid == 1, heatmap)
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    
+    # Create a colormap where masked values (walls) are shown in black
+    cmap = plt.cm.Blues
+    cmap.set_bad(color='black')
+    
+    # Create the heatmap
+    cax = ax.imshow(heatmap, cmap=cmap, interpolation='nearest',vmin=0, vmax=1)
+    
+    # Color bar to indicate frequency
+    cbar = fig.colorbar(cax)
+    cbar.set_label('Visit Frequency')
+
+    # Optionally, overlay grid and walls as in previous examples
+    for i in range(n):
+        for j in range(m):
+            if grid[i, j] == 1:
+                ax.text(j, i, '', va='center', ha='center', color='white', fontsize=12)
+
+    # Adjust the grid lines for clarity
+    ax.set_xticks(np.arange(-0.5, m, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
+    # ax.grid(which='minor', color='black', linestyle='-', linewidth=2)
+    ax.set_xticks(np.arange(m))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+    # Save the figure to a file
+    plt.savefig(title)
+    plt.close()
+
 def plot_policy(policy, grid, title):
     n, m = grid.shape
     fig, ax = plt.subplots(figsize=(10, 10))
-    ax.imshow(grid, cmap='gray')
+    ax.imshow(~grid, cmap='gray')
 
     for i in range(n):
         for j in range(m):
@@ -92,20 +142,27 @@ def plot_policy(policy, grid, title):
             state = i * m + j
             if policy[0, state] > 0:  # Up
                 # print("up")
-                ax.arrow(j, i, 0, -0.5, head_width=0.2, head_length=0.2, fc='red', ec='red')
+                ax.arrow(j, i, 0, -0.3, head_width=0.2, head_length=0.2, fc='blue', ec='blue')
             if policy[1, state] > 0:  # Right
-                ax.arrow(j, i, 0.5, 0, head_width=0.2, head_length=0.2, fc='green', ec='green')
+                ax.arrow(j, i, 0.3, 0, head_width=0.2, head_length=0.2, fc='blue', ec='blue')
                 # print("right")
             if policy[2, state] > 0:  # Down
-                ax.arrow(j, i, 0, 0.5, head_width=0.2, head_length=0.2, fc='blue', ec='blue')
+                ax.arrow(j, i, 0, 0.3, head_width=0.2, head_length=0.2, fc='blue', ec='blue')
                 # print("down")
             if policy[3, state] > 0:  # Left
                 # print("left")
-                ax.arrow(j, i, -0.5, 0, head_width=0.2, head_length=0.2, fc='yellow', ec='yellow')
+                ax.arrow(j, i, -0.3, 0, head_width=0.2, head_length=0.2, fc='blue', ec='blue')
+
+    ax.set_xticks(np.arange(-0.5, m, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
+    # ax.grid(which='minor', color='black', linestyle='-', linewidth=2)
+    ax.set_xticks(np.arange(m))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
     
-    ax.set_xticks(np.arange(-0.5, m, 1))
-    ax.set_yticks(np.arange(-0.5, n, 1))
     plt.savefig(title)
+    plt.close()
 
 def plot_value_function(value, grid, title):
     n, m = grid.shape
@@ -134,3 +191,4 @@ def plot_value_function(value, grid, title):
 
     fig.colorbar(cax)
     plt.savefig(title)
+    plt.close()

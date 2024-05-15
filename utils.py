@@ -189,7 +189,7 @@ def build_miniworld_model_filename(env, config):
     filename += '_seed' + str(config['seed'])
     return filename
 
-def build_maze_data_filename(env, n_envs, horizon, config, mode):
+def build_maze_data_filename(env, n_envs, horizon, config, mode, coverage, walls):
     """
     Builds the filename for the darkroom data.
     Mode is either 0: train, 1: test, 2: eval.
@@ -201,13 +201,18 @@ def build_maze_data_filename(env, n_envs, horizon, config, mode):
         filename += '_hists' + str(config['n_hists'])
         filename += '_samples' + str(config['n_samples'])
     filename += '_H' + str(horizon)
+    if coverage["mode"]:
+        filename += "_coversize" + str(coverage["size"])
+    else:
+        filename += "_covergood"
+    filename += '_' + str(walls)
     if mode == 0:
         filename += '_train'
     elif mode == 1:
-        filename += '_test'
+        filename += '_icl'
     elif mode == 2:
         filename += '_' + config['rollin_type']
-        filename += '_eval'
+        filename += '_iwl'
         
     return filename_template.format(filename)
 
