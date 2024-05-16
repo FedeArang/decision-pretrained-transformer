@@ -159,9 +159,9 @@ if __name__ == '__main__':
         action_dim = 4
 
         dataset_config.update({'rollin_type': 'uniform'})
-        coverage_bad = {"mode": True, "size": 1}
+        coverage_bad = {"mode": True, "size": 2}
         coverage_good = {"mode": False}
-        walls = "no_walls"
+        walls = "fixed_walls"
 
 
         path_train = build_maze_data_filename(
@@ -401,21 +401,6 @@ if __name__ == '__main__':
             torch.save(model.state_dict(),
                        f'models/{filename}_epoch{epoch+1}.pt')
 
-        # PLOTTING
-        # if (epoch + 1) % 10 == 0:
-        #     printw(f"Epoch: {epoch + 1}")
-        #     printw(f"ICL Loss:        {icl_loss[-1]}")
-        #     printw(f"IWL Loss:        {iwl_loss[-1]}")
-        #     printw(f"Train Loss:       {train_loss[-1]}")
-        #     printw("\n")
-
-        #     plt.yscale('log')
-        #     plt.plot(train_loss[1:], label="Train Loss")
-        #     plt.plot(icl_loss[1:], label="ICL Loss")
-        #     plt.plot(iwl_loss[1:], label="IWL Loss")
-        #     plt.legend()
-        #     plt.savefig(f"figs/loss/{filename}_train_loss.png")
-        #     plt.clf()
 
         if (epoch + 1) % 10 == 0:
             printw(f"Epoch: {epoch + 1}")
@@ -431,13 +416,14 @@ if __name__ == '__main__':
             ax1.plot(icl_loss[1:], label="ICL Loss")
             ax1.plot(iwl_loss[1:], label="IWL Loss")
             ax1.legend()
-            ax1.set_title('Loss')
+            ax1.set_ylabel("Cross-Entropy Loss")
 
             ax2.plot(train_accuracy, label="Train Accuracy")
             ax2.plot(icl_accuracy, label="ICL Accuracy")
             ax2.plot(iwl_accuracy, label="IWL Accuracy")
             ax2.legend()
-            ax2.set_title('Accuracy')
+            ax2.set_ylabel('Accuracy')
+            ax2.set_xlabel('Epochs')
 
             plt.tight_layout()
             plt.savefig(f"figs/loss/{filename}_train_loss_accuracy.png")

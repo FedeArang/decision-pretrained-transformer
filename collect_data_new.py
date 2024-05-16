@@ -204,8 +204,8 @@ if __name__ == '__main__':
 
         random_key = jax.random.PRNGKey(1)
         key_reset, key_train, key_icl, key_iwl = jax.random.split(random_key, 4)
-        walls = "no_walls"
-        coverage_bad = {"mode": True, "size": 1}
+        walls = "fixed_walls"
+        coverage_bad = {"mode": True, "size": 2}
         coverage_good = {"mode": False}
 
         actions = [
@@ -215,19 +215,21 @@ if __name__ == '__main__':
             [0, 0, 0, 1]
         ]
 
-        # Generate all permutations of the actions
-        permutations_list = list(permutations(actions))
-        permutations_array = np.array(permutations_list)
+        #_____PROPER PERMUTATIONS____
+        # permutations_list = list(permutations(actions))
+        # permutations_array = np.array(permutations_list)
+        # train_permutations = []
+        # test_permutation = np.array([actions])
+        # for i in range(len(permutations_list)):
+        #     if np.all(~np.all(test_permutation == permutations_array[i], axis=1)):
+        #         train_permutations.append(permutations_array[i])
+        # train_permutations = np.array(train_permutations)
 
-        train_permutations = []
-
-        test_permutation = np.array([actions])
-
-        for i in range(len(permutations_list)):
-            if np.all(~np.all(test_permutation == permutations_array[i], axis=1)):
-                train_permutations.append(permutations_array[i])
-
-        train_permutations = np.array(train_permutations)
+        #_____BAD PERMUTATIONS like in DPT____
+        permutations = list(permutations(actions))
+        random.shuffle(permutations)
+        train_permutations = permutations[:18]
+        test_permutation = permutations[18:]
 
         perm = {"test": test_permutation, "train": train_permutations}
 

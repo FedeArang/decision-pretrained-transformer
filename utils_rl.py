@@ -105,11 +105,12 @@ def plot_coverage(context_states, context_next_states, grid, title):
     cmap.set_bad(color='black')
     
     # Create the heatmap
-    cax = ax.imshow(heatmap, cmap=cmap, interpolation='nearest',vmin=0, vmax=1)
+    cax = ax.imshow(heatmap, cmap=cmap, interpolation='nearest', vmin=0, vmax=1)
     
     # Color bar to indicate frequency
-    cbar = fig.colorbar(cax)
-    cbar.set_label('Visit Frequency')
+    cbar = fig.colorbar(cax, fraction=0.046, pad=0.04)
+    cbar.set_label('Visit Frequency', fontsize=20)
+    cbar.ax.tick_params(labelsize=18)  # Adjust the font size of colorbar ticks
 
     # Optionally, overlay grid and walls as in previous examples
     for i in range(n):
@@ -120,11 +121,13 @@ def plot_coverage(context_states, context_next_states, grid, title):
     # Adjust the grid lines for clarity
     ax.set_xticks(np.arange(-0.5, m, 1), minor=True)
     ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
-    # ax.grid(which='minor', color='black', linestyle='-', linewidth=2)
     ax.set_xticks(np.arange(m))
     ax.set_yticks(np.arange(n))
     ax.set_xticklabels([])
     ax.set_yticklabels([])
+
+    # Tight layout to adjust the plot and colorbar
+    plt.tight_layout()
 
     # Save the figure to a file
     plt.savefig(title)
@@ -160,7 +163,8 @@ def plot_policy(policy, grid, title):
     ax.set_yticks(np.arange(n))
     ax.set_xticklabels([])
     ax.set_yticklabels([])
-    
+    plt.tight_layout()
+
     plt.savefig(title)
     plt.close()
 
