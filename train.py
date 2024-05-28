@@ -161,7 +161,7 @@ if __name__ == '__main__':
         dataset_config.update({'rollin_type': 'uniform'})
         coverage_bad = {"mode": True, "size": 2}
         coverage_good = {"mode": False}
-        walls = "fixed_walls"
+        walls = "variable_walls"
 
 
         path_train = build_maze_data_filename(

@@ -39,20 +39,41 @@ class Transformer(nn.Module):
         self.pred_actions = nn.Linear(self.n_embd, self.action_dim)
 
     def forward(self, x):
+        # print("__________________", 4 * (1 + self.horizon))
+
+        # print("x_query_states", x['query_states'].shape)
         query_states = x['query_states'][:, None, :]
+        # print("query_states", query_states.shape)
+        # print("x_zeros", x["zeros"].shape)
         zeros = x['zeros'][:, None, :]
+        # print("zeros", zeros.shape)
         
         state_seq = torch.cat([query_states, x['context_states']], dim=1)
+        # print("____state seq", state_seq.shape)
+
         action_seq = torch.cat(
             [zeros[:, :, :self.action_dim], x['context_actions']], dim=1)
+        # print("____action seq", action_seq.shape)
+
         next_state_seq = torch.cat(
             [zeros[:, :, :self.state_dim], x['context_next_states']], dim=1)
+        # print("____next state seq", next_state_seq.shape)
+
         reward_seq = torch.cat([zeros[:, :, :1], x['context_rewards']], dim=1)
+        # print("____reward seq", reward_seq.shape)
 
         seq = torch.cat(
             [state_seq, action_seq, next_state_seq, reward_seq], dim=2)
+
+        # print("seq_shape", seq.shape)
+
         stacked_inputs = self.embed_transition(seq)
+        # print("stacked_input shape", stacked_inputs.shape)
+
         transformer_outputs = self.transformer(inputs_embeds=stacked_inputs)
+
+        # print("transformer output shape", stacked_inputs.shape)
+
         preds = self.pred_actions(transformer_outputs['last_hidden_state'])
 
         if self.test:

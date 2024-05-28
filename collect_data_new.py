@@ -22,6 +22,7 @@ from jumanji.environments.routing.maze.types import Position, State
 from utils_rl import generate_transition_matrix_maze, generate_reward_function_maze, value_iteration, index_to_state, plot_policy, plot_coverage
 from functools import partial
 from itertools import permutations
+from tqdm import tqdm
 
 
 
@@ -69,11 +70,19 @@ def sample_state(state, key, coverage):
     return state
 
 
-def step_fn(state, key, coverage):
-    key_action, key_state = jax.random.split(key)
+def step_fn(state, key, coverage, permutation_matrix):
+    key_action, key_state, key_perm = jax.random.split(key, 3)
     state = sample_state(state, key_state, coverage)
     action = jax.random.randint(key=key_action, minval=0, maxval=num_actions, shape=())
-    new_state, timestep = env.step(state, action)
+
+    #_________DYNAMICS PERMUTATION________
+    # Pick a permutation based on the category
+    permuted_action_one_hot = permutation_matrix[action]
+    permuted_action = jnp.argmax(permuted_action_one_hot)
+    #______________________________________
+
+    new_state, timestep = env.step(state, permuted_action)
+
     return new_state, {
                         "state": [state.agent_position],
                         "action": action, 
@@ -82,15 +91,22 @@ def step_fn(state, key, coverage):
                         "whole_timestep": timestep
                         }
 
-def run_n_steps(state, key, n, coverage):
+def run_n_steps(state, key, n, coverage, perm):
     random_keys = jax.random.split(key, n)
-    partial_step_fn = partial(step_fn, coverage=coverage)
+
+    #_________DYNAMICS PERMUTATION________
+    # Pick a permutation based on the category
+    perm_index = jax.random.choice(key, jnp.arange(len(perm)))
+    permutation_matrix = perm[perm_index]
+    #______________________________________
+
+    partial_step_fn = partial(step_fn, coverage=coverage, permutation_matrix=permutation_matrix)
     state, rollout = jax.lax.scan(partial_step_fn, state, random_keys)
     return rollout
 
-def generate_rollouts(key, state, batch_size, rollout_length, coverage):
+def generate_rollouts(key, state, batch_size, rollout_length, coverage, perm):
     keys_rollout = jax.random.split(key, batch_size)
-    rollout = jax.vmap(run_n_steps, in_axes=(0, 0, None, None))(state, keys_rollout, rollout_length, coverage)
+    rollout = jax.vmap(run_n_steps, in_axes=(0, 0, None, None, None))(state, keys_rollout, rollout_length, coverage, perm)
     return rollout, keys_rollout
 
 def initialize_environments(key_reset, key_goals, batch_size, env, mode):
@@ -124,13 +140,13 @@ def extract_data(rollout, batch_size, keys_init, keys_rollout, random_key, categ
     test_permutations = perm["test"]
     train_permutations = perm["train"]
     
-    for k in range(batch_size):
+    for k in tqdm(range(batch_size)):
         walls = rollout["whole_timestep"].observation.walls[k][0]
         target_position = np.array([rollout["whole_timestep"].observation.target_position.row[k][0], rollout["whole_timestep"].observation.target_position.col[k][0]])
 
         P = generate_transition_matrix_maze(walls)
         r = generate_reward_function_maze(target_position, walls)
-        pi_opt = value_iteration(P, r, 0.99, precision=1e-1)
+        pi_opt = value_iteration(P, r, 0.9, precision=1e-1)
         # plot_policy(policy=pi_opt, grid=walls, title=f"plots/policies/policy_{category}_{k}")
 
         query_index = jax.random.choice(state_sample_keys[k], jnp.arange(walls.shape[0] * walls.shape[1]), (num_query_states,), p=~walls.flatten())
@@ -141,17 +157,17 @@ def extract_data(rollout, batch_size, keys_init, keys_rollout, random_key, categ
         context_actions_one_hot = np.zeros((len(context_actions), len(actions)))
         context_actions_one_hot[np.arange(len(context_actions)), context_actions] = 1
 
-        # Pick a permutation based on the category
-        if category == "icl":
-            perm_index = jax.random.choice(state_sample_keys[k], jnp.arange(len(test_permutations)))
-            perm = test_permutations[perm_index]
-        else:
-            perm_index = jax.random.choice(state_sample_keys[k], jnp.arange(len(train_permutations)))
-            perm = train_permutations[perm_index]
+        # # Pick a permutation based on the category
+        # if category == "icl":
+        #     perm_index = jax.random.choice(state_sample_keys[k], jnp.arange(len(test_permutations)))
+        #     perm = test_permutations[perm_index]
+        # else:
+        #     perm_index = jax.random.choice(state_sample_keys[k], jnp.arange(len(train_permutations)))
+        #     perm = train_permutations[perm_index]
         
-        # Apply the permutation to the actions
-        context_actions_one_hot = np.dot(context_actions_one_hot, perm)
-        optimal_actions = np.dot(optimal_actions, perm)
+        # # Apply the permutation to the actions
+        # context_actions_one_hot = np.dot(context_actions_one_hot, perm)
+        # optimal_actions = np.dot(optimal_actions, perm)
 
         data.append(
             {
@@ -204,8 +220,8 @@ if __name__ == '__main__':
 
         random_key = jax.random.PRNGKey(1)
         key_reset, key_train, key_icl, key_iwl = jax.random.split(random_key, 4)
-        walls = "fixed_walls"
-        coverage_bad = {"mode": True, "size": 2}
+        walls = "variable_walls"
+        coverage_bad = {"mode": True, "size": 2 }
         coverage_good = {"mode": False}
 
         actions = [
@@ -216,31 +232,44 @@ if __name__ == '__main__':
         ]
 
         #_____PROPER PERMUTATIONS____
-        # permutations_list = list(permutations(actions))
-        # permutations_array = np.array(permutations_list)
-        # train_permutations = []
-        # test_permutation = np.array([actions])
-        # for i in range(len(permutations_list)):
-        #     if np.all(~np.all(test_permutation == permutations_array[i], axis=1)):
-        #         train_permutations.append(permutations_array[i])
-        # train_permutations = np.array(train_permutations)
+        permutations_list = list(permutations(actions))
+        permutations_array = np.array(permutations_list)
+        train_permutations = []
+        test_permutation = np.array([actions])
+        for i in range(len(permutations_list)):
+            if np.all(~np.all(test_permutation == permutations_array[i], axis=1)):
+                train_permutations.append(permutations_array[i])
+        train_permutations = np.array(train_permutations)
 
-        #_____BAD PERMUTATIONS like in DPT____
-        permutations = list(permutations(actions))
-        random.shuffle(permutations)
-        train_permutations = permutations[:18]
-        test_permutation = permutations[18:]
-
-        perm = {"test": test_permutation, "train": train_permutations}
+        train_permutations = np.array(actions)
+        test_permutation = np.array(
+            [
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [1, 0, 0, 0]
+            ]
+        )
+        print("Number of training permutations:", len(train_permutations))
 
         
-        state_train, keys_init_train = initialize_environments(key_reset, key_train, n_train_envs, env, walls)
-        state_icl, keys_init_icl = initialize_environments(key_reset, key_icl, n_test_envs, env, walls)
-        state_iwl, keys_init_iwl = initialize_environments(key_reset, key_iwl, n_test_envs, env, walls)
 
-        rollout_train, keys_rollout_train = generate_rollouts(key_train, state_train, n_train_envs, horizon, coverage=coverage_good)
-        rollout_icl, keys_rollout_icl = generate_rollouts(key_icl, state_icl, n_test_envs, horizon, coverage=coverage_good)
-        rollout_iwl, keys_rollout_iwl = generate_rollouts(key_iwl, state_iwl, n_test_envs, horizon, coverage=coverage_bad)
+        #_____BAD PERMUTATIONS like in DPT____
+        # permutations = list(permutations(actions))
+        # random.shuffle(permutations)
+        # train_permutations = permutations[:18]
+        # test_permutation = permutations[18:]
+
+
+        perm = {"test": test_permutation, "train": train_permutations}
+        
+        state_train, keys_init_train = initialize_environments(key_train, key_train, n_train_envs, env, walls)
+        state_icl, keys_init_icl = initialize_environments(key_icl, key_icl, n_test_envs, env, walls)
+        state_iwl, keys_init_iwl = initialize_environments(key_iwl, key_train, n_test_envs, env, walls)
+
+        rollout_train, keys_rollout_train = generate_rollouts(key_train, state_train, n_train_envs, horizon, coverage=coverage_good, perm=jnp.array(train_permutations))
+        rollout_icl, keys_rollout_icl = generate_rollouts(key_icl, state_icl, n_test_envs, horizon, coverage=coverage_good, perm=jnp.array(test_permutation))
+        rollout_iwl, keys_rollout_iwl = generate_rollouts(key_iwl, state_iwl, n_test_envs, horizon, coverage=coverage_bad, perm=jnp.array(train_permutations))
 
         data_train = extract_data(rollout_train, n_train_envs, keys_init_train, keys_rollout_train, key_train, category="train", perm=perm)
         data_icl = extract_data(rollout_icl, n_test_envs, keys_init_icl, keys_rollout_icl, key_icl, category="icl", perm=perm)
